@@ -503,9 +503,7 @@ string kmap::stringForExp(vector<string> chart,unordered_map <int,char> piToAlph
 	return toExpand;
 }
 
-
-
-
+// Give the binary string representation of input number
 string kmap::intToBinary(int n) {
 	unordered_map<int,string> mapping= {
 		{0,"0000"},
@@ -528,24 +526,26 @@ string kmap::intToBinary(int n) {
 	return mapping[n];
 }
 
+
+// Compares s1 and s2 and returns true if only one bit differs else false
 bool kmap::isOneBitDiff(string s1, string s2) {
-	// lenght of both strings will be 4
-	// will igonre dash
+	/*
+	lenght of both strings will be 4
+	will igonre dash
+	*/
 	int changes=0;
 	for(int i=0; i<4; i++) {
-		if(s1[i]!=s2[i] && (s1[i]=='1' || s1[i]=='0') && (s2[i]=='1' || s2[i]=='0')) {
+		if(s1[i]!=s2[i] && (s1[i]!='-') && (s2[i]!='-')) {
 			changes++;
 		}
 	}
-	if(changes==1) {
-		return true;
-	}
-	else {
-		return false;
-	}
+	if(changes==1) return true;
+	return false;
 }
 
-string kmap::insertDash(vector<int> group) { // for groups of size =2
+// 
+string kmap::insertDash(vector<int> group) { 
+	// for groups of size =2
 	// we know if they are in 1 group then they have 1 bit difference
 	string st1=intToBinary(group[0]);
 	string st2=intToBinary(group[1]);
@@ -761,7 +761,7 @@ void debug::printRows(vector<vector<int>> v) {
 	}
 }
 
-/*
+
 int main() {	
 	// {0,1,3,14} , {6}
 	vector<int> ipMinterm= {0,1,2,5,6,7};
@@ -774,7 +774,7 @@ int main() {
  	d1.printS(stringAns);
 	return 0;
 }
-*/
+
 
 
 
