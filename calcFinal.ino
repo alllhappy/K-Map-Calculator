@@ -65,7 +65,7 @@ int exeButtonOld=1;
 // ---for i/p
 int readMux(int channel){
   for(int i = 0; i < 4; i ++){
-    digitalWrite(controlPins[i], channel >> i & 1);
+    digitalWrite(controlPins[i], (channel >> i) & 1);
   }
   delay(10);
   float vol=analogRead(op);
