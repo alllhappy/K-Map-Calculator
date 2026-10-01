@@ -6,7 +6,23 @@
 #include"kmap.h"
 using namespace std;
 
+/*
+*	abbreviations
+*	PI = Prime Implicants
+*	EPI = Essential Prime Implicants
+*	NPI = Non Essential Prime Implicants
+*	PI = EPI Union  NPI
+*/
 
+/*
+* Purpose : Returns Complete solution (Multiple Solutions also) of 4 variable Kmap represented by ipMinterm and ipdontCare
+* Main Operations :
+*	- Gets PI, (Tabulation)
+*	- Finds EPI from them
+*	- Checks EPI are enough to represent all
+*	- If Yes returns
+*	- Otherwise Proceeds to do Patrick method
+*/
 vector<vector<vector<int>>> kmap::getMinTerms(vector<int> ipMinterm,vector<int> ipdontCare){    
     vector<int> mintermDc= {};
 	for(int i=0; i<ipMinterm.size(); i++) {
@@ -18,128 +34,77 @@ vector<vector<vector<int>>> kmap::getMinTerms(vector<int> ipMinterm,vector<int> 
 	
 	sort(mintermDc.begin(),mintermDc.end());
 	vector<vector<vector<int>>> finalPi; //final prime implicantt
-	if(ipMinterm.size()==0){
-	    // cout<<"final groups"<<endl;
-	    // stringAns={"0"};
-	    // cout<<"String solutions -"<<endl;
-	    // printS(stringAns);
-	    return finalPi;
-	}
+
+	//edge case 1
+	if(ipMinterm.size()==0) return finalPi; //
 	
-	
-	if(mintermDc.size()==16){
-	    if(ipMinterm.size()!=0){
-	    	finalPi={{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}}};
-	   		// stringAns={"1"};
-	   		// printS(stringAns);
-	    	return finalPi;
-	    }
+	if(mintermDc.size()==16 && ipMinterm.size()!=0){
+		// ans is "1" : always true
+		finalPi={{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}}};
+		return finalPi;
 	}
-	vector<vector<int>> step1=primeImplicants(mintermDc);
-     
-	vector<string> chart;
-
-
-	string x(ipMinterm.size(),'x') ;  
-
-
-	for(int i=0; i<step1.size(); i++) {
-		vector<int> currRow=step1[i];
-		for(int j=0; j<currRow.size(); j++) {
-			// to check the current is in minterm vector or not
-			int index=findV(ipMinterm,currRow[j]);  // returns index of element  from vector
-			if(index!=-1) {
-				// the current is not a dont care condn & is  present in ipMinterm so change string
-				x[index]='t';
-			}
-
-		}
-		chart.push_back(x);
-		x=string(ipMinterm.size(),'x'); //resetting for nextRow processing
-	}
-
-	// find essential PI
-	vector<vector<int>> epi;
-    findEpi(epi,ipMinterm,chart,step1);
-	unordered_map<int,bool> epiMap; 
-
-	for(int i=0; i<epi.size(); i++) {
+	vector<vector<int>> pi=primeImplicants(mintermDc);
+	vector<string> chart=makeChart(pi,ipMinterm);
+	vector<vector<int>> epi=findEpi(ipMinterm,chart,pi);
+	set<int> epiMap; 
+	for(int i=0;i<epi.size();i++) {
 		for(int j=0; j<epi[i].size(); j++) {
-			int curr= epi[i][j];
-			epiMap[curr]=1;
+			epiMap.insert(epi[i][j]);
 		}
 	}
 
-	bool epiIsSol=true;
-	for(int i=0; i<ipMinterm.size(); i++) {
-		int curr=ipMinterm[i];
-		auto it = epiMap.find(curr);
-		if (it == epiMap.end()) {
-			epiIsSol=false;
-
-		}
-	}
-
-	if(epiIsSol) {
+	if(epiMap.size()==ipMinterm.size()) {
 		//eg case that will return from here is minterms={0,1,3,7,8,9,11,15}
 		finalPi.push_back(epi); // means final solution is EPI's only now exit main program ,3d vector
- 		//cout<<endl<<"final answer"<<endl;
- 		//checkTable(finalPi); // to print final pi
- 		//stringAns=finalString(finalPi);
- 		//printS(stringAns);
- 		//return 1;
         return finalPi; //
 	}
 
-	//eg case reaching here ipminterm= {0,1,2,5,6,7}
 	// now if program reaches here it means epi do not cover all minterms so need to include other pi's also
 	// now use patrick method
 	// use brace expansion code from another project;
+	// eg case reaching here ipminterm= {0,1,2,5,6,7}
 
+	// removal of epis from pis giving us npi and chart;
+	vector<vector<int>> npi=giveNpi(pi,epi);
+	updateChart(chart,pi,epi);
 
-	// removal from step1;
+	/*
 	for(int i=0; i<step1.size(); i++) {
-		vector<int> curr=step1[i];
-		if(search(epi,curr)) {
+		if(search(epi,step1[i])) {
 			step1.erase(step1.begin()+i);
 			chart.erase(chart.begin()+i);
 			i=-1;
 		}
-
 	}
-	vector<int> ipMintermCopy=ipMinterm;
+	*/
+	
+	//removal of minterms (columns) covered by epi from
+	vector<int> ipMintermUpdated=ipMinterm;
 	for(int i=0; i<chart[0].size(); i++) {
-		int currMinterm=ipMintermCopy[i];
+		int currMinterm =ipMintermUpdated[i];
 		auto it = epiMap.find(currMinterm);  
 		if (it != epiMap.end()) {
 			for(int j=0; j<chart.size(); j++) { 
 				chart[j].erase(chart[j].begin()+i);
 			}
-			ipMintermCopy.erase(ipMintermCopy.begin()+i);
+		 ipMintermUpdated.erase(ipMintermUpdated.begin()+i);
 			i=-1;
 		}
 	}
 
-
-
 	unordered_map <int,char> piToAlpha; 
 	unordered_map <char,int> alphaToPi;
-	for(int i=0; i<step1.size(); i++) {
+	for(int i=0; i<npi.size(); i++) {
 		int x=65+i;
 		char a=char(x);
 		piToAlpha[i]=a;
 		alphaToPi[a]=i;
 
 	}
-
 	// cout<<piToAlpha[0];
-
-    string toExpand=stringForExp(chart,piToAlpha); // this string will go for brace expansion
-
+    string toExpand=stringForExp(chart,piToAlpha); // this string will go for brace expansion in next step
 	// cout<<toExpand<<endl;
-
 	vector<string> expandedV=expand(toExpand);
-
 	for(int i=0; i<expandedV.size(); i++) {
 		removeDuplicateS(expandedV[i]); // removing duplicates from same string
 	}
@@ -158,8 +123,6 @@ vector<vector<vector<int>>> kmap::getMinTerms(vector<int> ipMinterm,vector<int> 
 	}
 	expandedV=temp;
 
-
-
 	vector<string> minliterals= {};
 	int mincount=1; // check for string size for 1 if found then ok otherwise find for 2;
 	while (minliterals.empty()) {
@@ -175,8 +138,6 @@ vector<vector<vector<int>>> kmap::getMinTerms(vector<int> ipMinterm,vector<int> 
     	}
 	}
 
-
-
 	// now
 	//checking of alphaToPi map
 	// cout<<alphaToPi['A']<<endl;
@@ -184,20 +145,14 @@ vector<vector<vector<int>>> kmap::getMinTerms(vector<int> ipMinterm,vector<int> 
 	vector<vector<vector<int>>> nEpi= {} ; // just like epi for non essential final
 	for(int i=0; i<minliterals.size(); i++) {
 		vector<vector<int>> current;
-		for(int j=0; j<mincount; j++) {
+		for(int j=0; j<mincount; j++){
 			char a=minliterals[i][j];
 			int mintermIndex=alphaToPi[a];
-			vector<int> pi=step1[mintermIndex];
+			vector<int> pi=npi[mintermIndex];
 			current.push_back(pi);
 		}
-
-
 		nEpi.push_back(current);
-		if(epi.size()!=0) {
-			nEpi[i].insert(nEpi[i].begin(),epi.begin(),epi.end());
-		}
-
-
+		if(epi.size()!=0) nEpi[i].insert(nEpi[i].begin(),epi.begin(),epi.end());
 	}
 	finalPi=nEpi;
     return finalPi;
@@ -317,27 +272,7 @@ vector<vector<int>> kmap::primeImplicants(vector<int> inputMinTerms) {
 		implicants.push_back(table2[3][i]);
 	}
 
-
-
-
-// TODO Remove Duplicates & handle case of no groupings
-// handle cases of non groupings in table 1,2,3. --->edit : handled in implicants vector pushing
-
-
-// 	checkTable(table3);
-
-// // checking insertDash2 function
-
-// 	  for(int i=0;i<3;i++){
-// 	     for(int j=0;j<table3[i].size();j++){
-// 	        cout<<insertDash2(table3[i][j]);
-// 	         cout<<endl;
-// 	      }
-
-// 	     cout<<"/////////////";
-// 	     cout<<endl;
-
-// 	}
+	// checkTable(table3);
 
 	// Table4(Last table)
 
@@ -407,49 +342,30 @@ vector<vector<int>> kmap::primeImplicants(vector<int> inputMinTerms) {
 	}
 	return impl;
 }
+vector<string> kmap::makeChart(vector<vector<int>> pi,vector<int> ipMinterm){
+	vector<string> chart;
+	string x(ipMinterm.size(),'x') ;  
+	for(int i=0; i<pi.size(); i++) {
+		vector<int> currRow=pi[i];
+		for(int j=0; j<currRow.size(); j++) {
+			// to check the current is in minterm vector or not
+			auto it=find(ipMinterm.begin(),ipMinterm.end(),currRow[j]);
+			if(it!=ipMinterm.end()) {
+				// the current is not a dont care condn & is  present in ipMinterm so change string
+				x[it-ipMinterm.begin()]='t';
+			}
 
-
-/*patrick method*/
-// function for brace expansion(exteranl code)
-void kmap::solve(int idx, vector <string> list, string curr,int n,vector<string> &ret) {
-	if(idx == n) {
-		ret.push_back(curr);
-		return;
-	}
-	for(int i = 0; i < list[idx].size(); i++) {
-		solve(idx + 1, list, curr + list[idx][i],n,ret);
-	}
-}
-
-// function for brace expansion(external code)
-vector<string> kmap::expand(string s) {
-	vector <string> ret;
-	int n;
-	vector <string> list(100);
-	n = 0;
-	int flag = false;
-	for(int i = 0; i < s.size(); i++) {
-		if(s[i] == ',') {
-			continue;
-		} else if(s[i] == '{') {
-			flag = true;
-		} else if(s[i] == '}') {
-			flag = false;
-			n++;
-		} else {
-			list[n] += s[i];
-			if(!flag)n++;
 		}
+		chart.push_back(x);
+		x=string(ipMinterm.size(),'x'); //resetting for nextRow processing
 	}
-	solve(0, list,"",n,ret);
-	sort(ret.begin(), ret.end());
-	return ret;
+	return chart;
 }
-
 //  to find Epi from chart
-void kmap::findEpi(vector<vector<int>> &epi , vector<int> ipMinterm , vector<string> chart, vector<vector<int>> step1){
+vector<vector<int>> kmap::findEpi(vector<int> ipMinterm , vector<string> chart, vector<vector<int>> step1){
 // traverse columnwisse strings to check if count of t=1;
 // if count of t=1 then also find its corresponding implicant
+	vector<vector<int>> epi;
     for(int j=0; j<ipMinterm.size(); j++) {
 		int count=0;
 		string temp="";
@@ -463,17 +379,37 @@ void kmap::findEpi(vector<vector<int>> &epi , vector<int> ipMinterm , vector<str
 		if(count==1) {
 			int index=findt(temp);
 			vector<int> tempEpi= step1[index];
-
 			// to avoid duplicate pushing of same epi
 			if(search(epi,tempEpi)==0) {
 				epi.push_back(tempEpi);
 			}
 		}
 	}
+	return epi;
 }
 
+vector<vector<int>> kmap::giveNpi(vector<vector<int>> pi,vector<vector<int>> epi){
+	vector<vector<int>> npi;
+	for(int i=0;i<pi.size();i++){
+		if(search(epi,pi[i])) continue;
+		npi.push_back(pi[i]);
+	}
+	return npi;
+}
 
+ void  kmap::updateChart(vector<string> &chart,vector<vector<int>> pi,vector<vector<int>> epi){
+	vector<string> temp;
+	//removal rows (PIs) from the chart
+	for(int i=0;i<pi.size();i++){
+		if(search(epi,pi[i])) continue;
+		temp.push_back(chart[i]);
+	}
+	chart=temp;
+	return; 
+	//now removal of minterms(columns) covered by epis 
 
+}
+/*patrick method*/
 string kmap::stringForExp(vector<string> chart,unordered_map <int,char> piToAlpha){
     string toExpand=""; 
 	// columnwise traversal
@@ -503,6 +439,49 @@ string kmap::stringForExp(vector<string> chart,unordered_map <int,char> piToAlph
 	return toExpand;
 }
 
+// function for brace expansion(external code)
+vector<string> kmap::expand(string s) {
+	vector <string> ret;
+	int n;
+	vector <string> list(100);
+	n = 0;
+	int flag = false;
+	for(int i = 0; i < s.size(); i++) {
+		if(s[i] == ',') {
+			continue;
+		} else if(s[i] == '{') {
+			flag = true;
+		} else if(s[i] == '}') {
+			flag = false;
+			n++;
+		} else {
+			list[n] += s[i];
+			if(!flag)n++;
+		}
+	}
+	solve(0, list,"",n,ret);
+	sort(ret.begin(), ret.end());
+	return ret;
+}
+
+// function for brace expansion(exteranl code)
+void kmap::solve(int idx, vector <string> list, string curr,int n,vector<string> &ret) {
+	if(idx == n) {
+		ret.push_back(curr);
+		return;
+	}
+	for(int i = 0; i < list[idx].size(); i++) {
+		solve(idx + 1, list, curr + list[idx][i],n,ret);
+	}
+}
+
+
+/*
+*
+* Small helper functions and utilities
+*
+*/
+
 // Give the binary string representation of input number
 string kmap::intToBinary(int n) {
 	unordered_map<int,string> mapping= {
@@ -529,10 +508,6 @@ string kmap::intToBinary(int n) {
 
 // Compares s1 and s2 and returns true if only one bit differs else false
 bool kmap::isOneBitDiff(string s1, string s2) {
-	/*
-	lenght of both strings will be 4
-	will igonre dash
-	*/
 	int changes=0;
 	for(int i=0; i<4; i++) {
 		if(s1[i]!=s2[i] && (s1[i]!='-') && (s2[i]!='-')) {
@@ -543,10 +518,12 @@ bool kmap::isOneBitDiff(string s1, string s2) {
 	return false;
 }
 
-// 
+// Inserts dash character in combined string representation of group
 string kmap::insertDash(vector<int> group) { 
-	// for groups of size =2
-	// we know if they are in 1 group then they have 1 bit difference
+	/*
+	* for groups of size =2
+	* we know if they are in 1 group then they have 1 bit difference
+	*/
 	string st1=intToBinary(group[0]);
 	string st2=intToBinary(group[1]);
 	for(int i=0; i<st1.length(); i++) {
@@ -557,72 +534,59 @@ string kmap::insertDash(vector<int> group) {
 	return st1;
 }
 
+// Returns true if both strings have dash ('-') at same positions
 bool kmap::dashPos(string s1,string s2) {
-	if(s1.size()==0 || s2.size()==0) {
-		return false;
-	}
-
-	for(int i=0; i<s1.size(); i++) {
-		if(s1[i]=='-') {
-			if(s2[i]!='-') {
-				return false;
-			}
-		}
+	if(s1.size()==0 || s2.size()==0) return false;
+	for(int i=0; i<s1.size(); i++){
+		if(s1[i]=='-' && s1[i]!=s2[i]) return false;
 	}
 	return true;
 }
 
-
-string kmap::insertDash2(vector<int> v) { // for groups of size==4
-	// we know if they are in 1 group then they have 1 bit difference 1 dash pos is same
-	// 0,1,2,3 first 2 group1 then last 2 group2
-	if(!v.empty()) {
-		vector<int> p1= {v[0],v[1]};
-		string st1=insertDash(p1);
-		vector<int> p2= {v[2],v[3]};
-		string st2=insertDash(p2);
-		for(int i=0; i<st1.length(); i++) {
-			if(st1[i]!=st2[i]) {
-				st1[i]='-';
-			}
-		}
-		return st1;
+// Inserts dash at difference position. Used in combining 2 + 2 terms into 4
+string kmap::insertDash2(vector<int> v) {
+	/*
+	* for groups of size==4  (v.size()=4)
+	* we know if they are in 1 group then they have 1 bit difference 1 dash pos is same
+	*/
+	if(v.empty()) return "";
+	
+	vector<int> p1= {v[0],v[1]};
+	string st1=insertDash(p1);
+	vector<int> p2= {v[2],v[3]};
+	string st2=insertDash(p2);
+	for(int i=0; i<st1.length(); i++){
+		if(st1[i]!=st2[i]) st1[i]='-';
 	}
-	return "";
-
+	return st1;
 }
 
-string kmap::insertDash3(vector<int> v) {  // for groups of size==8
-	// we know if they are in 1 group then they have 1 bit difference 2 dash pos is same
-	// 0,1,2,3 first 2 group1 then last 2 group2
-	if(!v.empty()) {
-		vector<int> v1= {v[0],v[1],v[2],v[3]};
-		string st1=insertDash2(v1);
-		vector<int> v2= {v[4],v[5],v[6],v[7]};
-		string st2=insertDash2(v2);
-		for(int i=0; i<st1.length(); i++) {
-			if(st1[i]!=st2[i]) {
-				st1[i]='-';
-			}
-		}
-		return st1;
+// Inserts dash at difference position. Used in combining 4 + 4 terms into 8
+string kmap::insertDash3(vector<int> v) {
+	/*
+	* for groups of size==8
+	* we know if they are in 1 group then they have 1 bit difference 2 dash pos is same
+	*/  
+	if(v.empty()) return "";
+	vector<int> v1= {v[0],v[1],v[2],v[3]};
+	string st1=insertDash2(v1);
+	vector<int> v2= {v[4],v[5],v[6],v[7]};
+	string st2=insertDash2(v2);
+	for(int i=0; i<st1.length(); i++) {
+		if(st1[i]!=st2[i]) st1[i]='-';
 	}
-	else {
-		return "";
-	}
-
+	return st1;
 }
 
+// Checks whether v2(1d vector) is present in v1(2d vector) or not 
 bool kmap::search(vector<vector<int>> v1, vector<int> v2) {
-	for(int i=0; i<v1.size(); i++) {
-		if(v1[i]==v2) {
-			return true;
-		}
+	for(int i=0; i<v1.size(); i++){
+		if(v1[i]==v2) return true;
 	}
 	return false;
 }
 
-// will check if all elements of v1 is present in v2 or not
+// Check if all elements of v1 is present in v2 or not
 bool kmap::subsetCheck(vector<int> v1, vector<int> v2) {
 	set<int> mp;
 	for(int i=0;i<v2.size();i++){
@@ -637,25 +601,23 @@ bool kmap::subsetCheck(vector<int> v1, vector<int> v2) {
 	return false;
 }
 
-
+// Returns index of val inside v , if not found returns -1
 int kmap::findV(vector<int> v,int val) {
 	for(int i=0; i<v.size(); i++) {
-		if(v[i]==val) {
-			return i;
-		}
-	}
-	return -1;
-}
-// returns  first index of t from given string
-int kmap::findt(string x) {
-	for(int i=0; i<x.length(); i++) {
-		if(x[i]=='t') {
-			return i;
-		}
+		if(v[i]==val) return i;
 	}
 	return -1;
 }
 
+// Returns first index of t from given string
+int kmap::findt(string x) {
+	for(int i=0; i<x.length(); i++) {
+		if(x[i]=='t') return i;
+	}
+	return -1;
+}
+
+// Returns a string containing only unique characters in it in sorted order
 void kmap::removeDuplicateS(string &a) {
 	sort(a.begin(),a.end());
 	string temp="";
@@ -669,65 +631,34 @@ void kmap::removeDuplicateS(string &a) {
 	return;
 }
 
+// Returns String form of combined minterms(v) . Eg v={0,1} --> "000-" --> A'B'C'
 string kmap::piToString(vector<int> v) {
 	string ans="";
-	if(v.size()==8) {
-		//use insertDash3
-		string x=insertDash3(v);
-		for(int i=0; i<x.length(); i++) { //x.length()=4 always
-			char curr=x[i];
-			if(curr!='-') {
-				char a=char(65+i);
-				ans.push_back(a);
-				if(curr=='0') ans.push_back('\'');
-			}
-		}
-	}
-	else if(v.size()==4) {
-		// use insertDash2
-		string x=insertDash2(v);
-		for(int i=0; i<x.length(); i++) {
-			char curr=x[i];
-			if(curr!='-') {
-				char a=char(65+i);
-				ans.push_back(a);
-				if(curr='0') ans.push_back('\'');
-			}
-		}
-
-	}
-
-	else if(v.size()==2) {
-		// use insertDash
-		vector<int> p= {v[0],v[1]};
-		string x=insertDash(p);
-		for(int i=0; i<x.length(); i++) {
-			char curr=x[i];
-			if(curr!='-') {
-				char a=char(65+i);
-				ans.push_back(a);
-				if(curr='0') ans.push_back('\'');
-			}
-		}
-	}
-	else if(v.size()==1) {
-		// dont use insert dashing
-		int n=v[0];
-		string x=intToBinary(n);
-		for(int i=0; i<x.length(); i++) { //x.lenght()=4
-			char curr=x[i];
-			if(curr!='-') {
-				char a=char(65+i);
-				ans.push_back(a);
-				if(curr='0') ans.push_back('\'');
-			}
+	string x="";
+	if(v.size()==8) x=insertDash3(v);
+	else if(v.size()==4) x=insertDash2(v);
+	else if(v.size()==2) x=insertDash(v);
+	else if(v.size()==1)x=intToBinary(v[0]);
+	
+	for(int i=0; i<x.length(); i++) { 
+		char curr=x[i];
+		if(curr!='-'){
+			char a=char(65+i);
+			ans.push_back(a);
+			if(curr=='0') ans.push_back('\'');
 		}
 	}
 	return ans;
 }
 
 
-/*debug functions*/
+/*
+*
+* debug functions
+*
+*/
+
+// Prints vector of strings
 void debug::printS(vector<string> a){
     
     for(int i=0; i<a.size(); i++) {
@@ -736,12 +667,14 @@ void debug::printS(vector<string> a){
 	}
 }
 
+//Prints vector of int
 void debug::printV(vector<int> v) {
 	for(int i=0; i<v.size(); i++) {
 		cout<<v[i]<<" ";
 	}
 }
 
+//Prints the 3d vector
 void debug::checkTable(vector<vector<vector<int>>> table) {
 	for(int i=0; i<table.size(); i++) {
 		for(int j=0; j<table[i].size(); j++) {
@@ -754,14 +687,15 @@ void debug::checkTable(vector<vector<vector<int>>> table) {
 	}
 }
 
+//prints 2d vector
 void debug::printRows(vector<vector<int>> v) {
 	for(int i=0; i<v.size(); i++) {
 		printV(v[i]);
-		cout<<endl;
+		cout<<"\n";
 	}
 }
 
-
+/*
 int main() {	
 	// {0,1,3,14} , {6}
 	vector<int> ipMinterm= {0,1,2,5,6,7};
@@ -771,9 +705,10 @@ int main() {
 	vector<vector<vector<int>>> ans=calc.getMinTerms(ipMinterm,ipdontCare);
 	vector<string> stringAns=calc.finalString(ans);
 	d1.checkTable(ans);
- 	d1.printS(stringAns);
+	d1.printS(stringAns);
 	return 0;
 }
+*/
 
 
 

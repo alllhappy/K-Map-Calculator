@@ -12,14 +12,19 @@ class kmap{
   private :
     /*tabulation*/
     vector<vector<int>> primeImplicants(vector<int> inputMinTerms);
+    vector<string> makeChart(vector<vector<int>> pi,vector<int> ipMinterm);
 
-    /*essential PI*/
-    void findEpi(vector<vector<int>> &epi , vector<int> ipMinterm , vector<string> chart, vector<vector<int>> step1);
+    /*essential PI from chart*/
+    vector<vector<int>> findEpi(vector<int> ipMinterm , vector<string> chart, vector<vector<int>> step1);
+
+    /*non essential PI from char*/
+    vector<vector<int>> giveNpi(vector<vector<int>> pi,vector<vector<int>> npi);
+    void updateChart(vector<string> &chart,vector<vector<int>> pi,vector<vector<int>> npi);
 
     /*petrick method*/
-    void solve(int idx, vector <string> list, string curr,int n,vector<string> &ret); //brace expansion,exteranl
-    vector<string> expand(string s) ;//external
     string stringForExp(vector<string> chart,unordered_map <int,char> piToAlpha);
+    vector<string> expand(string s) ;//external
+    void solve(int idx, vector <string> list, string curr,int n,vector<string> &ret); //brace expansion,exteranl
 
     /*small helper functions and utilities*/
     string intToBinary(int n);
